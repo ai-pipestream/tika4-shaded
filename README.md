@@ -15,7 +15,7 @@ Note: The OCR module is included in the standard parsers package but is also add
 ## Requirements
 
 - JDK 21 or later
-- Gradle 8.5+ (included via wrapper)
+- Gradle 9.2+ (included via wrapper)
 - Network access to https://repository.apache.org/snapshots/ for Tika 4 SNAPSHOT dependencies
 
 ## Building
@@ -62,5 +62,7 @@ See [USAGE.md](USAGE.md) for detailed usage examples.
 
 ## License
 
-This project follows the Apache License 2.0, consistent with Apache Tika.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Note: This is a shaded packaging project. Apache Tika itself is licensed under the Apache License 2.0.
 
