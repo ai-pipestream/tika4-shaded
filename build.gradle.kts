@@ -1,0 +1,70 @@
+plugins {
+    id("java-library")
+    id("com.github.johnrengelman.shadow") version "8.1.1"
+    id("maven-publish")
+}
+
+group = "ai.pipestream"
+version = "4.0.0-SNAPSHOT"
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+}
+
+repositories {
+    mavenCentral()
+    // Apache Snapshots repository for Tika 4.0 nightlies
+    maven {
+        name = "ApacheSnapshots"
+        url = uri("https://repository.apache.org/snapshots/")
+        mavenContent {
+            snapshotsOnly()
+        }
+    }
+}
+
+dependencies {
+    implementation(libs.tika.core)
+    implementation(libs.tika.parsers.standard)
+    // Extended parsers for better content extraction
+    implementation(libs.tika.parser.scientific)
+    // OCR support for images and scanned documents (requires tesseract)
+    implementation(libs.tika.parser.ocr)
+}
+
+tasks {
+    shadowJar {
+        archiveClassifier.set("")
+        mergeServiceFiles()
+        
+        // Relocate packages to avoid conflicts
+        relocate("org.apache.tika", "ai.pipestream.shaded.tika")
+    }
+    
+    build {
+        dependsOn(shadowJar)
+    }
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            artifact(tasks.shadowJar)
+            
+            pom {
+                name.set("Tika 4 Shaded")
+                description.set("Shaded version of Apache Tika 4.0 snapshot with core, standard parsers, scientific parser, and OCR parser")
+                url.set("https://github.com/ai-pipestream/tika4-shaded")
+                
+                licenses {
+                    license {
+                        name.set("The Apache License, Version 2.0")
+                        url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+                    }
+                }
+            }
+        }
+    }
+}
