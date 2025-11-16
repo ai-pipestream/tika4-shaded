@@ -4,6 +4,7 @@ plugins {
     id("maven-publish")
 }
 
+import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.tasks.compile.JavaCompile
 
 group = "ai.pipestream"
@@ -41,7 +42,18 @@ dependencies {
 tasks {
     shadowJar {
         archiveClassifier.set("")
+        
+        // Merge service provider files (META-INF/services/*)
         mergeServiceFiles()
+        
+        // Handle duplicate entries by excluding them instead of failing
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        
+        // Exclude signature files that commonly cause ZIP conflicts
+        exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
+        
+        // Allow large ZIP entries if needed
+        isZip64 = true
         
         // Relocate packages to avoid conflicts
         relocate("org.apache.tika", "ai.pipestream.shaded.tika")
