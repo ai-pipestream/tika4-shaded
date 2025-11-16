@@ -31,6 +31,8 @@ dependencies {
     // Extended parsers for better content extraction
     implementation(libs.tika.parser.scientific)
     // OCR support for images and scanned documents (requires tesseract)
+    // Note: OCR module is already included in tika-parsers-standard-package
+    // Adding it explicitly here ensures it's available even if not using the full standard package
     implementation(libs.tika.parser.ocr)
 }
 

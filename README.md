@@ -6,9 +6,11 @@ A JDK21 Gradle build that takes the latest version of Apache Tika 4 nightly snap
 
 This build includes the following Tika 4 components:
 - `tika-core` - Core Tika functionality
-- `tika-parsers-standard-package` - Standard parsers for common document formats
+- `tika-parsers-standard-package` - Standard parsers for common document formats (includes OCR module)
 - `tika-parser-scientific-package` - Extended parsers for scientific document formats
-- `tika-parser-ocr-package` - OCR support for images and scanned documents (requires tesseract)
+- `tika-parser-ocr-module` - OCR support for images and scanned documents (requires tesseract)
+
+Note: The OCR module is included in the standard parsers package but is also added explicitly to ensure availability.
 
 ## Requirements
 
