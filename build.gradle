@@ -17,6 +17,7 @@ group = 'ai.pipestream'
 scmVersion {
     tag {
         prefix = 'v'
+        initialVersion { config, position -> '0.7.0' }
     }
     checks {
         uncommittedChanges = false
@@ -25,9 +26,12 @@ scmVersion {
     }
 }
 
-version = scmVersion.version
+// Temporarily set to 0.7.0-SNAPSHOT for snapshot build
+// After successful publish, create tag v0.7.0 to release
+version = '0.7.0-SNAPSHOT'
+// version = scmVersion.version  // Restore after release
 
-def pipelineBomVersion = findProperty('pipelineBomVersion') ?: '0.2.2'
+def pipelineBomVersion = findProperty('pipelineBomVersion') ?: '0.2.10-SNAPSHOT'
 
 java {
 
