@@ -22,14 +22,14 @@ scmVersion {
     checks {
         uncommittedChanges = false
         aheadOfRemote = false
+        // Note: We must allow SNAPSHOT dependencies because Tika 4.0 is unreleased
+        // But we verify that NO SNAPSHOTs are exposed to consumers (see POM validation)
         snapshotDependencies = false
     }
 }
 
-// Temporarily set to 0.7.0-SNAPSHOT for snapshot build
-// After successful publish, create tag v0.7.0 to release
-version = '0.7.0-SNAPSHOT'
-// version = scmVersion.version  // Restore after release
+// Use scmVersion for releases, falls back to SNAPSHOT for development
+version = scmVersion.version
 
 def pipestreamBomVersion = findProperty('pipestreamBomVersion') ?: '0.7.0'
 
