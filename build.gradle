@@ -31,7 +31,7 @@ scmVersion {
 version = '0.7.0-SNAPSHOT'
 // version = scmVersion.version  // Restore after release
 
-def pipelineBomVersion = findProperty('pipelineBomVersion') ?: '0.2.10-SNAPSHOT'
+def pipestreamBomVersion = findProperty('pipestreamBomVersion') ?: '0.7.0'
 
 java {
 
@@ -315,17 +315,17 @@ publishing {
                         }
                     }
 
-                    // Check if pipeline-bom already exists
+                    // Check if pipestream-bom already exists
                     def existingBom = depsNode.children().find { dep ->
                         dep.groupId?.text() == 'ai.pipestream' &&
-                                dep.artifactId?.text() == 'pipeline-bom'
+                                dep.artifactId?.text() == 'pipestream-bom'
                     }
 
                     if (!existingBom) {
                         def bomDependency = depsNode.appendNode('dependency')
                         bomDependency.appendNode('groupId', 'ai.pipestream')
-                        bomDependency.appendNode('artifactId', 'pipeline-bom')
-                        bomDependency.appendNode('version', pipelineBomVersion)
+                        bomDependency.appendNode('artifactId', 'pipestream-bom')
+                        bomDependency.appendNode('version', pipestreamBomVersion)
                         bomDependency.appendNode('type', 'pom')
                         bomDependency.appendNode('scope', 'import')
                     }
