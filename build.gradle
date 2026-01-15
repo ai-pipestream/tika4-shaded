@@ -78,6 +78,9 @@ tasks.register('generateBuildTime') {
     def buildTimeFile = file('src/main/resources/build-time.txt')
     outputs.file(buildTimeFile)
     
+    // Always run this task to ensure timestamp is current
+    outputs.upToDateWhen { false }
+    
     doLast {
         // Generate timestamp in ISO 8601 format (UTC)
         def timestamp = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC'))
