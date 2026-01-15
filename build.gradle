@@ -86,8 +86,8 @@ tasks.register('generateBuildTime') {
     outputs.upToDateWhen { false }
     
     doLast {
-        // Generate timestamp in ISO 8601 format (UTC)
-        def timestamp = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC'))
+        // Generate timestamp in ISO 8601 format (UTC) using Instant for precision
+        def timestamp = java.time.Instant.now().toString()
         buildTimeFile.parentFile.mkdirs()
         buildTimeFile.text = timestamp + '\n'
         logger.lifecycle("Generated build-time.txt with timestamp: ${timestamp}")
