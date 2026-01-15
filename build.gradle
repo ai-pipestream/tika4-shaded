@@ -45,6 +45,11 @@ java {
     }
 }
 
+// Ensure sourcesJar runs after generateBuildTime to avoid task dependency issues
+tasks.named('sourcesJar') {
+    mustRunAfter generateBuildTime
+}
+
 repositories {
     mavenCentral()
     // Apache Snapshots repository for Tika 4.0 nightlies
@@ -66,6 +71,27 @@ dependencies {
     // Note: OCR module is already included in tika-parsers-standard-package
     // Adding it explicitly here ensures it's available even if not using the full standard package
     implementation(libs.tika.parser.ocr)
+    
+    // Test dependencies
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+// Task to generate build-time.txt with current timestamp
+tasks.register('generateBuildTime') {
+    def buildTimeFile = file('src/main/resources/build-time.txt')
+    outputs.file(buildTimeFile)
+    
+    // Always run this task to ensure timestamp is current
+    outputs.upToDateWhen { false }
+    
+    doLast {
+        // Generate timestamp in ISO 8601 format (UTC) using Instant for precision
+        def timestamp = java.time.Instant.now().toString()
+        buildTimeFile.parentFile.mkdirs()
+        buildTimeFile.text = timestamp + '\n'
+        logger.lifecycle("Generated build-time.txt with timestamp: ${timestamp}")
+    }
 }
 
 // Task to collect and merge all service files from dependencies
@@ -216,7 +242,7 @@ tasks.withType(JavaCompile).configureEach {
 
 
 test {
-    systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+    useJUnitPlatform()
 }
 compileJava {
     options.encoding = 'UTF-8'
@@ -242,6 +268,9 @@ tasks.withType(Javadoc).configureEach { task ->
 // Enable resource filtering to replace @version@ in application.properties
 // Use @ delimiters to avoid conflicts with ${} runtime property placeholders
 processResources {
+    // Ensure build-time.txt is generated before processing resources
+    dependsOn generateBuildTime
+    
     filesMatching('**/*.properties') {
         filter(ReplaceTokens, tokens: [
                 version: project.version.toString()
