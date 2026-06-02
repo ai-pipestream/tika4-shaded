@@ -3,7 +3,7 @@ rootProject.name = "tika4-shaded"
 dependencyResolutionManagement {
     versionCatalogs {
         create("libs") {
-            version("tika", "4.0.0-SNAPSHOT")
+            version("tika", "4.0.0-alpha-1")
             version("junit", "5.10.0")
             
             library("tika-core", "org.apache.tika", "tika-core").versionRef("tika")
