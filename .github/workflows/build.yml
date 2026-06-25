@@ -41,7 +41,7 @@ jobs:
       run: ./gradlew clean build shadowJar --no-daemon --stacktrace
 
     - name: Upload shaded JAR
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: tika4-shaded
         path: build/libs/tika4-shaded-*.jar
