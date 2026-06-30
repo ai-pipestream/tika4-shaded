@@ -50,6 +50,15 @@ tasks.named('sourcesJar') {
     mustRunAfter generateBuildTime
 }
 
+// The shadowJar uses archiveClassifier '' so it IS the published main artifact.
+// Disable the default thin `jar` task so two tasks don't both write
+// build/libs/<name>.jar — that shared output path makes Gradle's publish-task
+// validation fail ("uses this output of task ':jar' without declaring a
+// dependency") on publishToMavenLocal and the Central snapshot publish.
+tasks.named('jar') {
+    enabled = false
+}
+
 repositories {
     // Tika is pinned to a released milestone (4.0.0-alpha-1) on Maven Central;
     // the Apache snapshots repo is no longer needed now that we're off nightlies.
