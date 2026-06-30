@@ -4,7 +4,7 @@ dependencyResolutionManagement {
     versionCatalogs {
         create("libs") {
             version("tika", "4.0.0-alpha-1")
-            version("junit", "5.10.0")
+            version("junit", "5.14.4")
             
             library("tika-core", "org.apache.tika", "tika-core").versionRef("tika")
             library("tika-parsers-standard", "org.apache.tika", "tika-parsers-standard-package").versionRef("tika")
