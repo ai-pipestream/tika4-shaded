@@ -7,7 +7,7 @@ plugins {
     id 'maven-publish'
     id 'pl.allegro.tech.build.axion-release' version '1.21.2'
     id 'signing'
-    id 'com.gradleup.nmcp' version '1.6.0'
+    id 'com.gradleup.nmcp' version '1.6.1'
 }
 
 
