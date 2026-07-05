@@ -10,6 +10,13 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch:
 
+env:
+  # This repo's shadowJar merges ~90 Tika parsers + POI + SIS/GeoTools + ImageIO
+  # providers — memory-heavy with no bound, unlike every other repo in the
+  # fleet. Bound it explicitly so it doesn't get OOM-killed under concurrent
+  # job load on a shared runner host.
+  GRADLE_OPTS: -Xmx3072m -XX:MaxMetaspaceSize=768m
+
 jobs:
   build:
     name: Build and Test
