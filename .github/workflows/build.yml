@@ -10,6 +10,13 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch:
 
+env:
+  # This repo's shadowJar merges ~90 Tika parsers + POI + SIS/GeoTools + ImageIO
+  # providers — memory-heavy with no bound, unlike every other repo in the
+  # fleet. Bound it explicitly so it doesn't get OOM-killed under concurrent
+  # job load on a shared runner host.
+  GRADLE_OPTS: -Xmx3072m -XX:MaxMetaspaceSize=768m
+
 jobs:
   build:
     name: Build and Test
@@ -29,7 +36,6 @@ jobs:
       with:
         java-version: '21'
         distribution: 'temurin'
-        cache: gradle
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
@@ -38,7 +44,21 @@ jobs:
       run: ./gradlew currentVersion --no-daemon
 
     - name: Build with Gradle
-      run: ./gradlew clean build shadowJar --no-daemon --stacktrace
+      run: |
+        set -o pipefail
+        ./gradlew clean build shadowJar --no-daemon --stacktrace 2>&1 | tee build.log
+
+    - name: Upload build log (always, even on failure)
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: build-log
+        path: |
+          build.log
+          build/reports/problems/*.html
+          hs_err_pid*.log
+        retention-days: 14
+        if-no-files-found: ignore
 
     - name: Upload shaded JAR
       uses: https://code.forgejo.org/forgejo/upload-artifact@v7
@@ -67,7 +87,6 @@ jobs:
       with:
         java-version: '21'
         distribution: 'temurin'
-        cache: gradle
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
