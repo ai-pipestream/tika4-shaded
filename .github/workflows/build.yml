@@ -44,7 +44,21 @@ jobs:
       run: ./gradlew currentVersion --no-daemon
 
     - name: Build with Gradle
-      run: ./gradlew clean build shadowJar --no-daemon --stacktrace
+      run: |
+        set -o pipefail
+        ./gradlew clean build shadowJar --no-daemon --stacktrace 2>&1 | tee build.log
+
+    - name: Upload build log (always, even on failure)
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: build-log
+        path: |
+          build.log
+          build/reports/problems/*.html
+          hs_err_pid*.log
+        retention-days: 14
+        if-no-files-found: ignore
 
     - name: Upload shaded JAR
       uses: actions/upload-artifact@v7
