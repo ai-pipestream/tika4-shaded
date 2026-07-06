@@ -50,7 +50,7 @@ jobs:
 
     - name: Upload build log (always, even on failure)
       if: always()
-      uses: actions/upload-artifact@v7
+      uses: https://code.forgejo.org/forgejo/upload-artifact@v5
       with:
         name: build-log
         path: |
@@ -61,7 +61,7 @@ jobs:
         if-no-files-found: ignore
 
     - name: Upload shaded JAR
-      uses: https://code.forgejo.org/forgejo/upload-artifact@v7
+      uses: https://code.forgejo.org/forgejo/upload-artifact@v5
       with:
         name: tika4-shaded
         path: build/libs/tika4-shaded-*.jar

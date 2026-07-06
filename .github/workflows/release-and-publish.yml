@@ -45,7 +45,7 @@ jobs:
         run: ./gradlew clean build shadowJar --no-daemon --stacktrace
 
       - name: Upload build artifacts
-        uses: https://code.forgejo.org/forgejo/upload-artifact@v7
+        uses: https://code.forgejo.org/forgejo/upload-artifact@v5
         with:
           name: build-artifacts
           path: build/libs/tika4-shaded-*.jar
