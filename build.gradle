@@ -80,22 +80,28 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-// Task to generate build-time.txt with current timestamp
+// Task to generate build-time.txt with current timestamp.
+// Written under build/ (not src/) so builds never dirty the git tree; the
+// directory is wired into the main resource set below, keeping the file on
+// the runtime classpath.
 tasks.register('generateBuildTime') {
-    def buildTimeFile = file('src/main/resources/build-time.txt')
+    def buildTimeFile = layout.buildDirectory.file('generated-resources/build-time/build-time.txt')
     outputs.file(buildTimeFile)
-    
+
     // Always run this task to ensure timestamp is current
     outputs.upToDateWhen { false }
-    
+
     doLast {
         // Generate timestamp in ISO 8601 format (UTC) using Instant for precision
         def timestamp = java.time.Instant.now().toString()
-        buildTimeFile.parentFile.mkdirs()
-        buildTimeFile.text = timestamp + '\n'
+        def outFile = buildTimeFile.get().asFile
+        outFile.parentFile.mkdirs()
+        outFile.text = timestamp + '\n'
         logger.lifecycle("Generated build-time.txt with timestamp: ${timestamp}")
     }
 }
+
+sourceSets.main.resources.srcDir(layout.buildDirectory.dir('generated-resources/build-time'))
 
 // Task to collect and merge all service files from dependencies
 tasks.register('collectServiceFiles') {
