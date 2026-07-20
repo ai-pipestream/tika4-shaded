@@ -152,8 +152,16 @@ jobs:
         run: ./gradlew publish -PskipCentral=true --no-daemon --stacktrace
 
       - name: Create Release
+        # Runs on the Forgejo runner: point the action at github.com explicitly
+        # (the runner's GITHUB_TOKEN is a Forgejo token and GITHUB_API_URL is
+        # the Forgejo API). GH_PACKAGES_TOKEN is a real github.com PAT.
+        if: ${{ secrets.GH_PACKAGES_TOKEN != '' }}
         uses: softprops/action-gh-release@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
+          GITHUB_API_URL: https://api.github.com
         with:
+          repository: ai-pipestream/tika4-shaded
           tag_name: ${{ steps.version.outputs.tag }}
           name: Release ${{ steps.version.outputs.version }}
           body: |
