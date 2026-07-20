@@ -111,14 +111,3 @@ jobs:
         GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
       run: ./gradlew publishAllPublicationsToCentralPortalSnapshots --no-daemon --stacktrace
-
-    - name: Publish snapshots to GitHub Packages
-      # NOTE: secrets.GITHUB_TOKEN is reserved and always auto-populated with the
-      # Forgejo runner's own token (never a real github.com PAT), so it 401s here
-      # unconditionally. GH_PACKAGES_TOKEN is a real github.com PAT with
-      # write:packages, added as a dedicated repo secret.
-      if: ${{ secrets.GH_PACKAGES_TOKEN != '' }}
-      env:
-        GITHUB_ACTOR: ${{ github.actor }}
-        GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
-      run: ./gradlew publish -PskipCentral=true --no-daemon --stacktrace
