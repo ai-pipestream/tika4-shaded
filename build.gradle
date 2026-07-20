@@ -221,6 +221,14 @@ tasks {
         relocate 'org.apache.tika', 'ai.pipestream.shaded.tika'
         relocate 'com.google.protobuf', 'ai.pipestream.shaded.protobuf'
         relocate 'com.google.common', 'ai.pipestream.shaded.guava'
+        // Apache HttpClient: consumers run their own (REST Assured / Quarkus);
+        // an unrelocated copy on the classpath shadows theirs and breaks with
+        // NoSuchMethodError (module-parser OpenApiEndpointIT, 2026-07-20).
+        relocate 'org.apache.http', 'ai.pipestream.shaded.http'
+        // commonmark: module-parser also depends on org.commonmark directly
+        // (catalog version); keep the shaded copy private so the two never
+        // shadow each other.
+        relocate 'org.commonmark', 'ai.pipestream.shaded.commonmark'
 
         // Preserve important manifest entries
         manifest {
