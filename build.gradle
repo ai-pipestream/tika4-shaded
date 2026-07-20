@@ -60,9 +60,16 @@ tasks.named('jar') {
 }
 
 repositories {
-    // Tika is pinned to a released milestone (4.0.0-alpha-1) on Maven Central;
-    // the Apache snapshots repo is no longer needed now that we're off nightlies.
+    // Tika tracks the 4.0.0-SNAPSHOT nightly line, which only exists in the
+    // Apache snapshots repository. The nightly CI build republishes the
+    // shaded snapshot so consumers pick up Tika fixes as they land.
     mavenCentral()
+    maven {
+        url = uri("https://repository.apache.org/content/repositories/snapshots/")
+        mavenContent {
+            snapshotsOnly()
+        }
+    }
 }
 
 dependencies {
