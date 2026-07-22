@@ -139,7 +139,7 @@ To build the shaded JAR:
 ./gradlew shadowJar
 ```
 
-The shaded JAR will be created in `build/libs/tika4-shaded-4.0.0-SNAPSHOT.jar`
+The shaded JAR will be created in `build/libs/tika4-shaded-<version>.jar`, where the version is derived from git tags by the axion-release plugin (for example `tika4-shaded-0.7.0-SNAPSHOT.jar` during development).
 
 ## Automated Builds
 
@@ -147,7 +147,7 @@ This project includes a GitHub Actions workflow that:
 - Builds the shaded JAR automatically on push to main/develop branches
 - Runs nightly to capture the latest Tika 4 snapshots
 - Uploads the built artifact for easy download
-- Publishes to GitHub Packages on the main branch
+- Publishes snapshots to Maven Central (Central Portal snapshots) on the main branch
 
 You can trigger a manual build from the Actions tab in GitHub.
 
