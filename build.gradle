@@ -84,6 +84,7 @@ dependencies {
     
     // Test dependencies
     testImplementation(libs.junit.jupiter)
+    testImplementation(libs.assertj.core)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -110,13 +111,49 @@ tasks.register('generateBuildTime') {
 
 sourceSets.main.resources.srcDir(layout.buildDirectory.dir('generated-resources/build-time'))
 
-// Task to collect and merge all service files from dependencies
+// SINGLE SOURCE OF TRUTH for shading. Every entry here drives three things that
+// must stay in lockstep, and used to be maintained by hand in three places:
+//   1. the `relocate` calls in shadowJar (rewrites the bytecode),
+//   2. the `exclude` of the dependencies' own META-INF/services files, and
+//   3. the rewrite of service-file names and bodies in collectServiceFiles.
+// Skip (2)/(3) for a package and the jar ships service registrations naming
+// classes relocation just removed, which blows up in the consumer's
+// ServiceLoader rather than here. Keep ShadedJarContentTest.relocations() in
+// sync with this map.
+ext.shadedRelocations = [
+        // Tika itself: the whole point of the artifact.
+        'org.apache.tika'    : 'ai.pipestream.shaded.tika',
+        'com.google.protobuf': 'ai.pipestream.shaded.protobuf',
+        'com.google.common'  : 'ai.pipestream.shaded.guava',
+        // Apache HttpClient: consumers run their own (REST Assured / Quarkus);
+        // an unrelocated copy on the classpath shadows theirs and breaks with
+        // NoSuchMethodError (module-parser OpenApiEndpointIT, 2026-07-20).
+        'org.apache.http'    : 'ai.pipestream.shaded.http',
+        // commonmark: module-parser also depends on org.commonmark directly
+        // (catalog version); keep the shaded copy private so the two never
+        // shadow each other.
+        'org.commonmark'     : 'ai.pipestream.shaded.commonmark',
+        // Jackson: module-parser pulls quarkus-rest-jackson and Quarkus manages
+        // its own Jackson version; an unrelocated copy here is the same
+        // collision shape as the HttpClient one. ShadedJarParseTest proves
+        // Tika's reflective Jackson use survives the rewrite.
+        'com.fasterxml.jackson': 'ai.pipestream.shaded.jackson'
+]
+
+// Task to collect and merge the two class-name registries the dependency jars
+// ship as plain text: META-INF/services/* (JDK ServiceLoader) and
+// META-INF/tika/*.idx (Tika 4's generated component index). Neither is touched
+// by shadow's bytecode relocation, and shadowJar's EXCLUDE duplicates strategy
+// keeps only the first jar's copy of each name, so both have to be merged and
+// rewritten here.
 tasks.register('collectServiceFiles') {
     def outputDir = layout.buildDirectory.dir('service-files')
     outputs.dir(outputDir)
 
     // Get the resolved files at configuration time (compatible with config cache)
     def classpathFiles = configurations.runtimeClasspath.incoming.files
+    def relocations = shadedRelocations
+    inputs.property('relocations', relocations)
 
     doLast {
         def servicesDir = outputDir.get().asFile
@@ -124,6 +161,17 @@ tasks.register('collectServiceFiles') {
         servicesDir.mkdirs()
 
         def serviceFiles = [:]
+        def tikaIndexFiles = [:]
+
+        def collectLines = { Map sink, String key, String content ->
+            def lines = sink.computeIfAbsent(key) { new LinkedHashSet() }
+            content.split('\n').each { line ->
+                def trimmed = line.trim()
+                if (trimmed && !trimmed.startsWith('#')) {
+                    lines.add(trimmed)
+                }
+            }
+        }
 
         // Iterate through all runtime classpath JARs
         classpathFiles.each { jar ->
@@ -131,20 +179,17 @@ tasks.register('collectServiceFiles') {
                 try {
                     def zipFile = new java.util.zip.ZipFile(jar)
                     zipFile.entries().each { entry ->
-                        if (entry.name.startsWith('META-INF/services/') && !entry.isDirectory()) {
-                            def serviceName = entry.name.replace('META-INF/services/', '')
-                            if (!serviceFiles.containsKey(serviceName)) {
-                                serviceFiles[serviceName] = new LinkedHashSet()
-                            }
-
-                            // Read the service file contents
-                            def content = zipFile.getInputStream(entry).text
-                            content.split('\n').each { line ->
-                                def trimmed = line.trim()
-                                if (trimmed && !trimmed.startsWith('#')) {
-                                    serviceFiles[serviceName].add(trimmed)
-                                }
-                            }
+                        if (entry.isDirectory()) {
+                            return
+                        }
+                        if (entry.name.startsWith('META-INF/services/')) {
+                            collectLines(serviceFiles,
+                                    entry.name.replace('META-INF/services/', ''),
+                                    zipFile.getInputStream(entry).text)
+                        } else if (entry.name.startsWith('META-INF/tika/') && entry.name.endsWith('.idx')) {
+                            collectLines(tikaIndexFiles,
+                                    entry.name.replace('META-INF/tika/', ''),
+                                    zipFile.getInputStream(entry).text)
                         }
                     }
                     zipFile.close()
@@ -155,19 +200,15 @@ tasks.register('collectServiceFiles') {
         }
 
         // Write the merged service files with relocated package names
-        serviceFiles.each { serviceName, implementations ->
-            // Relocate the service file name (for org.apache.tika services)
-            def relocatedServiceName = serviceName.replace('org.apache.tika.', 'ai.pipestream.shaded.tika.')
-
-            def serviceFile = new File(servicesDir, "META-INF/services/${relocatedServiceName}")
-            serviceFile.parentFile.mkdirs()
-
-            // Relocate the implementation class names
-            def relocatedImplementations = implementations.collect { impl ->
-                impl.replace('org.apache.tika.', 'ai.pipestream.shaded.tika.')
+        def relocateName = { String name ->
+            def result = name
+            relocations.each { origin, target ->
+                result = result.replace(origin + '.', target + '.')
             }
+            return result
+        }
 
-            serviceFile.text = """#  Licensed to the Apache Software Foundation (ASF) under one or more
+        def asfHeader = """#  Licensed to the Apache Software Foundation (ASF) under one or more
 #  contributor license agreements.  See the NOTICE file distributed with
 #  this work for additional information regarding copyright ownership.
 #  The ASF licenses this file to You under the Apache License, Version 2.0
@@ -182,9 +223,31 @@ tasks.register('collectServiceFiles') {
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-${relocatedImplementations.join('\n')}
 """
-            logger.lifecycle("Created service file ${relocatedServiceName} with ${relocatedImplementations.size()} implementations")
+
+        def writeMerged = { String relativePath, Collection lines ->
+            def target = new File(servicesDir, relativePath)
+            target.parentFile.mkdirs()
+            target.text = asfHeader + lines.collect { relocateName(it as String) }.join('\n') + '\n'
+            return target
+        }
+
+        serviceFiles.each { serviceName, implementations ->
+            // Relocate the service file name for every shaded package
+            def relocatedServiceName = relocateName(serviceName)
+            writeMerged("META-INF/services/${relocatedServiceName}", implementations)
+            logger.lifecycle("Created service file ${relocatedServiceName} with ${implementations.size()} implementations")
+        }
+
+        // Tika 4's annotation processor emits META-INF/tika/<kind>.idx registries whose
+        // values are fully qualified class names. Shadow rewrites bytecode, not these
+        // text files, so an unrewritten copy names classes the shaded jar no longer
+        // contains. They are written with a `.idxmerged` staging suffix so the
+        // shadowJar `exclude 'META-INF/tika/*.idx'` (which drops the dependencies'
+        // unmerged originals) does not also drop these; shadowJar renames them back.
+        tikaIndexFiles.each { indexName, entries ->
+            writeMerged("META-INF/tika/${indexName}merged", entries)
+            logger.lifecycle("Created Tika index ${indexName} with ${entries.size()} entries")
         }
     }
 }
@@ -196,14 +259,28 @@ tasks {
         // Depend on the service file collection task
         dependsOn collectServiceFiles
 
-        // Include the merged and pre-relocated service files from our custom task
-        // The custom task already renamed the files and relocated the class names
+        // Include the merged and pre-relocated registries from our custom task.
+        // The custom task already renamed the files and relocated the class names.
         from(layout.buildDirectory.dir('service-files')) {
             include 'META-INF/services/**'
+            include 'META-INF/tika/**'
         }
 
-        // Exclude original service files from dependencies - we'll use our merged and pre-relocated ones
-        exclude 'META-INF/services/org.apache.tika.*'
+        // Exclude the dependencies' own service files for every relocated package -
+        // we ship the merged, pre-relocated copies from collectServiceFiles instead.
+        // Without this the unrelocated originals win the duplicate race below and
+        // the jar ships registrations naming classes that no longer exist.
+        shadedRelocations.keySet().each { origin ->
+            exclude "META-INF/services/${origin}.*"
+        }
+
+        // Same story for Tika 4's generated component index. The merged copies come
+        // in as `*.idxmerged` (see collectServiceFiles) so this exclude only removes
+        // the dependencies' originals; the rename below restores the real extension.
+        exclude 'META-INF/tika/*.idx'
+        filesMatching('META-INF/tika/*.idxmerged') {
+            name = name.replace('.idxmerged', '.idx')
+        }
 
         // Append other important resource files that need merging
         append 'META-INF/DEPENDENCIES'
@@ -224,18 +301,11 @@ tasks {
         // Allow large ZIP entries if needed
         zip64 true
 
-        // Relocate packages to avoid conflicts
-        relocate 'org.apache.tika', 'ai.pipestream.shaded.tika'
-        relocate 'com.google.protobuf', 'ai.pipestream.shaded.protobuf'
-        relocate 'com.google.common', 'ai.pipestream.shaded.guava'
-        // Apache HttpClient: consumers run their own (REST Assured / Quarkus);
-        // an unrelocated copy on the classpath shadows theirs and breaks with
-        // NoSuchMethodError (module-parser OpenApiEndpointIT, 2026-07-20).
-        relocate 'org.apache.http', 'ai.pipestream.shaded.http'
-        // commonmark: module-parser also depends on org.commonmark directly
-        // (catalog version); keep the shaded copy private so the two never
-        // shadow each other.
-        relocate 'org.commonmark', 'ai.pipestream.shaded.commonmark'
+        // Relocate packages to avoid conflicts. Rationale per package lives on the
+        // shadedRelocations map above; add new entries there, not here.
+        shadedRelocations.each { origin, target ->
+            relocate origin, target
+        }
 
         // Preserve important manifest entries
         manifest {
@@ -265,8 +335,29 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 
+// The interesting tests in this repo inspect and execute the PRODUCED shaded
+// jar, not the compile classpath — the compile classpath still carries the
+// unrelocated Tika, so a test written against it proves nothing about shading.
+// Wire the artifact in explicitly: `test` declares the shadowJar archive as an
+// input (which also carries the task dependency) and hands its path to the test
+// JVM as a system property. The provider is captured in a local so the
+// configuration cache never has to reach back to the task at execution time,
+// and it is resolved in doFirst — by then shadowJar has run, so querying it is
+// legal. The tests fail hard when the property is missing or the file is
+// absent, so this can never degrade into a vacuous pass.
+def shadedJarProvider = tasks.shadowJar.archiveFile
+
 test {
     useJUnitPlatform()
+    inputs.file(shadedJarProvider)
+            .withPropertyName('shadedJar')
+            .withPathSensitivity(PathSensitivity.NAME_ONLY)
+    doFirst {
+        systemProperty 'tika4shaded.jar', shadedJarProvider.get().asFile.absolutePath
+    }
+    // Tika + POI + PDFBox all load inside the isolated URLClassLoader used by
+    // ShadedJarParseTest; the default 512m test heap is not enough.
+    maxHeapSize = '1g'
 }
 compileJava {
     options.encoding = 'UTF-8'

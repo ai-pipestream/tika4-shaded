@@ -5,6 +5,7 @@ dependencyResolutionManagement {
         create("libs") {
             version("tika", "4.0.0-SNAPSHOT")
             version("junit", "5.14.4")
+            version("assertj", "3.27.7")
             
             library("tika-core", "org.apache.tika", "tika-core").versionRef("tika")
             library("tika-parsers-standard", "org.apache.tika", "tika-parsers-standard-package").versionRef("tika")
@@ -13,6 +14,7 @@ dependencyResolutionManagement {
             library("tika-parser-ocr", "org.apache.tika", "tika-parser-ocr-module").versionRef("tika")
             
             library("junit-jupiter", "org.junit.jupiter", "junit-jupiter").versionRef("junit")
+            library("assertj-core", "org.assertj", "assertj-core").versionRef("assertj")
         }
     }
 }
